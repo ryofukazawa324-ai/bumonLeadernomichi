@@ -43,10 +43,15 @@ async function openFromInputs(){
  if(seq!==loadSeq)return;
  const local=localRead(key);if(!online&&!local){setStatus('読み込み失敗：端末内バックアップなし','err');return}
  current={code,dept};currentKey=key;revision=local?.revision||0;
- items=local?.pending?local.items:(remote?.items||local?.items||[]);
+ // Prefer existing Supabase data. Preserve unsynced local edits if both exist.
+ if(online&&remote&&local?.pending){
+  const preferLocal=confirm('Supabaseにもデータがあります。\nOK：Supabaseのデータを読み込む\nキャンセル：この端末の未同期データを使う');
+  items=preferLocal?remote.items:local.items;
+  if(preferLocal){revision++;localWrite(false)}
+ }else items=remote?.items||local?.items||[];
  try{localStorage.setItem('bumonLeaderLast',JSON.stringify({code,dept}))}catch{}
  render();
- if(local?.pending){setStatus('端末内の未同期データを復元','err');if(online)scheduleSave()}
+ if(local?.pending&&(!online||!remote||items===local.items)){setStatus('端末内の未同期データを復元','err');if(online)scheduleSave()}
  else if(online){localWrite(false);setStatus('同期済み・端末内バックアップ済み','ok')}
  else setStatus('オフライン：端末内バックアップを表示','err');
 }
